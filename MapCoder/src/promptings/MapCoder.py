@@ -9,6 +9,8 @@ import time
 from copy import deepcopy
 import xml.etree.ElementTree as ET
 
+from models.AlephAlpha import AlephAlpha
+
 from .Base import BaseStrategy
 from models.Base import BaseModel
 
@@ -70,7 +72,6 @@ class MapCoder(BaseStrategy):
             response = response.replace('```xml', '')
         if '```' in response:
             response = response.replace('```', '')
-
         try:
             root = ET.fromstring(response)
         except:
@@ -238,6 +239,8 @@ Your response must follow the following xml format-
         print(response, flush=True)
 
         response = self.parse_xml(response)
+        if "root" in response:
+            response = response["root"]
 
         algorithm_prompt = f"## Relevant Algorithm to solve the next problem:\n{ response['algorithm']}"
         sample_io_prompt = f"## Sample Test cases: \n{self.get_sample_io_str(item['sample_io'])}\n"
