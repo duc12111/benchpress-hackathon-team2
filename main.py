@@ -6,6 +6,9 @@ from typing import List, Dict, Any
 from aleph_alpha_client import Client, CompletionRequest, Prompt
 from utilities import load_sample, run_test_cases, score
 from utils import get_cot_prompt
+import prompting
+import re
+import xml.etree.ElementTree as ET
 
 AA_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoyNTk4OCwidG9rZW5faWQiOjY0MTd9.-lXWLgM0Dud432XGkq03eZgCGlGUhyhMeKYwwwrl3Rk"  # Replace with your actual token
 MODEL = "llama-3.1-70b-instruct-long-context"
@@ -18,9 +21,15 @@ client = Client(AA_TOKEN)
 def is_syntax_correct(code: str) -> bool:
     try:
         compile(code, '<string>', 'exec')
-        return True
-    except SyntaxError:
-        return False
+        return True, "Code executed successfully."
+    except SyntaxError as e:
+        return False, f"SyntaxError: {e}"
+    except NameError as e:
+        return False, f"NameError: {e}"
+    except TypeError as e:
+        return False, f"TypeError: {e}"
+    except Exception as e:  # Generic exception for any other errors
+        return False, f"Error: {type(e).__name__}: {e}"
 
 # def generate_code_solutions(problem: dict, client: Client, num_samples: int) -> List[str]:
 #     """
@@ -52,7 +61,7 @@ def is_syntax_correct(code: str) -> bool:
 #         time.sleep(0.5)
 #     return code_solutions
 
-def generate_code_solutions(problem: dict, client: Client, num_samples: int, temperature: float = 0.8, try_limit: int = 2) -> List[str]:
+def generate_code_solutions(problem: dict, client: Client, num_samples: int, temperature: float = 0.1, try_limit: int = 2) -> List[str]:
     """
     Generate multiple code solutions for a given problem, ensuring they have correct syntax.
 
@@ -66,33 +75,49 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
         List[str]: A list of generated code solutions with correct syntax.
     """
     prompt = generate_code_prompt(problem)
-    prompt = get_cot_prompt(prompt)
+    # prompt = get_cot_prompt(prompt)
     code_solutions = []
     max_attempts = num_samples * 2  # Allow up to twice the number of samples to account for syntax errors
     attempts = 0
+    # print(prompt)
     while len(code_solutions) < num_samples and attempts < max_attempts:
         request = CompletionRequest(
             prompt=Prompt.from_text(prompt),
-            maximum_tokens=2048,
+            maximum_tokens=10000,
             temperature=temperature,  # Adjusted temperature for diversity
-            stop_sequences=["\n\n"],
+            stop_sequences=[],
             echo=False
         )
+        # print(request)
         response = client.complete(request, model=MODEL)
-        code = response.completions[0].completion.strip()
+        code_block_match = re.search(r"<code>.*?</code>", response.completions[0].completion.strip(), re.DOTALL)
+        # print(response.completions[0].completion.strip())
+        if code_block_match:
+            code_block = code_block_match.group()
+            
+            # Parse the extracted XML block
+            root = ET.fromstring(code_block)
+            
+            # Extract the code from within CDATA
+            code = root.text.strip()
+            print(code)
+        else:
+            print("No <code> block found in the text.")
+            code = ""
         num_try = 0
         while (num_try <= try_limit):
-            if is_syntax_correct(code):
+            success, compile_text = is_syntax_correct(code)
+            if success:
                 code_solutions.append(code)
                 break
             else:
                 num_try += 1
         if num_try > try_limit:
             request = CompletionRequest(
-            prompt=f"Please debug the current code \code{code}\code for the given prompt {Prompt.from_text(prompt)} Just the write the fixed code.",
-            maximum_tokens=1024,
+            prompt=f"""The following code <code>\n{code}\n</code> has a compile error: "{compile_text}". Please debug the code and write the correct code for the given prompt {Prompt.from_text(prompt)}.""",
+            maximum_tokens=10000,
             temperature=temperature,  # Adjusted temperature for diversity
-            stop_sequences=["\n\n"],
+            stop_sequences=[],
             echo=False
         )
             print("Discarded code with syntax error.")
@@ -114,12 +139,13 @@ def generate_code_prompt(problem: dict) -> str:
     Returns:
         str: The prompt for code generation.
     """
-    prompt = f"{problem['starter_code']}\n"
-    prompt += f"\"\"\"\n{problem['question']}\n\"\"\"\n"
-    prompt += "\n# Write your code below\n"
-    # print(prompt)
-    # exit()
-    return prompt
+    return prompting.generate_prompt(problem['question'], problem['starter_code'], problem['input_output']['inputs'], problem['input_output']['outputs'])
+    # prompt = f"{problem['starter_code']}\n"
+    # prompt += f"\"\"\"\n{problem['question']}\n\"\"\"\n"
+    # prompt += "\n# Write your code below\n"
+    # # print(prompt)
+    # # exit()
+    # return prompt
 
 def generate_test_cases(problem: dict, client: Client, num_samples: int) -> List[str]:
     """
