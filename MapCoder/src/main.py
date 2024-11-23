@@ -47,6 +47,7 @@ parser.add_argument(
         "ChatGPT",
         "GPT4",
         "Gemini",
+        "AlephAlpha",
     ]
 )
 parser.add_argument(
