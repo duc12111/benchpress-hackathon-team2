@@ -23,7 +23,7 @@ class AlephAlpha(BaseModel):
             try:
                 request = CompletionRequest(
                     prompt=Prompt.from_text(processed_input[0]['content']),
-                    maximum_tokens=5000,
+                    maximum_tokens=10000,
                 )
 
                 # API reference for the client:

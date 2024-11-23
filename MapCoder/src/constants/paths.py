@@ -125,6 +125,9 @@ CODE_CONTEST_DATA_PATH = join(
 
 # APPS Dataset
 APPS_DATA_DIR = join(
+     os.path.dirname(__file__),
+    "..",
+    "..",
     "data",
     "APPS",
 )
@@ -132,4 +135,17 @@ APPS_DATA_DIR = join(
 APPS_DATA_PATH = join(
     APPS_DATA_DIR,
     "selected150.jsonl"
+)
+
+
+
+# APPS Dataset
+CODEWARS_DATA_DIR = join(
+    "data",
+    "CodeWars",
+)
+
+CODEWARS_DATA_PATH = join(
+    CODEWARS_DATA_DIR,
+    "output.jsonl"
 )

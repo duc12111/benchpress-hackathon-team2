@@ -25,6 +25,7 @@ parser.add_argument(
         "APPS",
         "xCodeEval", 
         "CC", 
+        "CW",
     ]
 )
 parser.add_argument(
