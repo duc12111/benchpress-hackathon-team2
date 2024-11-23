@@ -5,9 +5,10 @@ import argparse
 from typing import List, Dict, Any
 from aleph_alpha_client import Client, CompletionRequest, Prompt
 from utilities import load_sample, run_test_cases, score
+from utils import get_cot_prompt
 
 AA_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoyNTk4OCwidG9rZW5faWQiOjY0MTd9.-lXWLgM0Dud432XGkq03eZgCGlGUhyhMeKYwwwrl3Rk"  # Replace with your actual token
-MODEL = "llama-3.1-8b-instruct-long-context"
+MODEL = "llama-3.1-70b-instruct-long-context"
 
 if not AA_TOKEN:
     raise ValueError("Aleph Alpha Playground token is not set.")
@@ -51,7 +52,7 @@ def is_syntax_correct(code: str) -> bool:
 #         time.sleep(0.5)
 #     return code_solutions
 
-def generate_code_solutions(problem: dict, client: Client, num_samples: int, temperature: float = 0.8) -> List[str]:
+def generate_code_solutions(problem: dict, client: Client, num_samples: int, temperature: float = 0.8, try_limit: int = 2) -> List[str]:
     """
     Generate multiple code solutions for a given problem, ensuring they have correct syntax.
 
@@ -65,27 +66,38 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
         List[str]: A list of generated code solutions with correct syntax.
     """
     prompt = generate_code_prompt(problem)
-
+    prompt = get_cot_prompt(prompt)
     code_solutions = []
     max_attempts = num_samples * 2  # Allow up to twice the number of samples to account for syntax errors
     attempts = 0
     while len(code_solutions) < num_samples and attempts < max_attempts:
         request = CompletionRequest(
             prompt=Prompt.from_text(prompt),
-            maximum_tokens=256,
+            maximum_tokens=2048,
             temperature=temperature,  # Adjusted temperature for diversity
             stop_sequences=["\n\n"],
             echo=False
         )
         response = client.complete(request, model=MODEL)
         code = response.completions[0].completion.strip()
-        if is_syntax_correct(code):
-            code_solutions.append(code)
-        else:
+        num_try = 0
+        while (num_try <= try_limit):
+            if is_syntax_correct(code):
+                code_solutions.append(code)
+                break
+            else:
+                num_try += 1
+        if num_try > try_limit:
+            request = CompletionRequest(
+            prompt=f"Please debug the current code \code{code}\code for the given prompt {Prompt.from_text(prompt)} Just the write the fixed code.",
+            maximum_tokens=1024,
+            temperature=temperature,  # Adjusted temperature for diversity
+            stop_sequences=["\n\n"],
+            echo=False
+        )
             print("Discarded code with syntax error.")
+        
         attempts += 1
-        # Sleep to respect rate limits
-        time.sleep(0.5)
 
     if not code_solutions:
         # If no code solutions have correct syntax, return an empty list or handle accordingly
@@ -136,8 +148,7 @@ def generate_test_cases(problem: dict, client: Client, num_samples: int) -> List
         test_case = response.completions[0].completion.strip()
         if test_case.startswith("assert"):
             test_cases.append(test_case)
-        # Sleep to respect rate limits
-        time.sleep(0.5)
+
     return test_cases
 
 def generate_test_case_prompt(problem: dict) -> str:
@@ -510,7 +521,7 @@ def generate_code_with_codet(problem: dict, client: Client, additional_data: boo
         str: The selected code solution.
     """
     # Parameters adjusted for SOTA results on the APPS dataset
-    num_code_samples = 5  # For other datasets
+    num_code_samples = 20  # For other datasets
     num_test_case_samples = 5
     temperature = 0.8
 
@@ -565,7 +576,7 @@ def main():
         generation_func=lambda problem, client: generate_code_with_codet(problem, client, args.additional_data, args.speed_up),
         client=client,
         dataset_path="./data/val",  # Path to your validation set
-        length=10,  # Adjust the number of problems to evaluate
+        length=100,  # Adjust the number of problems to evaluate
     )
     print(f"Passed {passed_problems*100}% of problems")
     print(f"Passed {passed_test_cases*100}% of test cases")
