@@ -35,7 +35,7 @@ def score(generation_func: Callable, client: Client, dataset_path: str, length: 
             problem=problem,
             generation=generated_code,
             eval=True,
-            timeout=2,
+            timeout=5,
         )
 
         passed = [r["passed"] for r in result]
