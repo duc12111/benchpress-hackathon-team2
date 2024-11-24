@@ -136,6 +136,8 @@ def select_best_code_full(code_solutions: List[str], test_cases: List[Dict[str, 
     """
     fn_name = test_cases[0]['fn_name'] if test_cases else ''
     code_solution_scores = []
+    total_test_cases = len(test_cases)
+    
     for code in code_solutions:
         # Prepare a problem dict with the test cases
         problem_with_test_cases = problem.copy()
@@ -156,6 +158,11 @@ def select_best_code_full(code_solutions: List[str], test_cases: List[Dict[str, 
             # Count the number of passed test cases
             num_passed = sum(1 for result in test_results if result['passed'])
             code_solution_scores.append((code, num_passed))
+            # Early return if all test cases are passed
+            if num_passed == total_test_cases:
+                print("A code solution passed all test cases. Returning early.")
+                return code
+
 
         except Exception as e:
             # If execution fails, consider zero passed tests
@@ -211,9 +218,9 @@ def generate_code_with_codet(problem: dict, client: Client, num_code_samples: in
 
 def main():
     parser = argparse.ArgumentParser(description='CODET Benchmark Script')
-    parser.add_argument('--num_code_samples', type=int, default=5, help='Number of code samples to generate')
+    parser.add_argument('--num_code_samples', type=int, default=20, help='Number of code samples to generate')
     parser.add_argument('--temperature', type=float, default=0.8, help='Sampling temperature for diversity')
-    parser.add_argument('--length', type=int, default=1, help='Number of problems to evaluate')
+    parser.add_argument('--length', type=int, default=100, help='Number of problems to evaluate')
     args = parser.parse_args()
 
     client = Client(AA_TOKEN)
