@@ -222,3 +222,11 @@ main()
 ```
 """
     return f"{example_prompt}\n{prompt}\n## Let's think step by step and generate {language} code to solve the problem.\n# ----------------\nImportant: Your response must contain only the {language} code to solve this problem inside ``` block."
+
+@staticmethod
+def get_sample_io_str(sample_io: any) -> str:
+    sample_io_str = ""
+    for i in range(min(len(sample_io['inputs']), len(sample_io['outputs']))):
+        input_str = ", ".join([str(x) for x in sample_io['inputs'][i]])
+        sample_io_str += f"Input:\n{sample_io['fn_name']}({input_str})\nExpected output:\n{sample_io['outputs'][i]}\n"
+    return sample_io_str

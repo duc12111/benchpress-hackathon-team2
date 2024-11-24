@@ -5,7 +5,7 @@ import argparse
 from typing import List, Dict, Any
 from aleph_alpha_client import Client, CompletionRequest, Prompt
 from utilities import load_sample, run_test_cases, score
-from utils import get_cot_prompt
+from utils import get_cot_prompt, get_sample_io_str
 import prompting
 import re
 import xml.etree.ElementTree as ET
@@ -31,37 +31,7 @@ def is_syntax_correct(code: str) -> bool:
     except Exception as e:  # Generic exception for any other errors
         return False, f"Error: {type(e).__name__}: {e}"
 
-# def generate_code_solutions(problem: dict, client: Client, num_samples: int) -> List[str]:
-#     """
-#     Generate multiple code solutions for a given problem.
-
-#     Args:
-#         problem (dict): The problem to solve.
-#         client (Client): The Aleph Alpha client.
-#         num_samples (int): Number of code solutions to generate.
-
-#     Returns:
-#         List[str]: A list of generated code solutions.
-#     """
-#     prompt = generate_code_prompt(problem)
-
-#     code_solutions = []
-#     for _ in range(num_samples):
-#         request = CompletionRequest(
-#             prompt=Prompt.from_text(prompt),
-#             maximum_tokens=256,
-#             temperature=0.8,  # Higher temperature for diversity
-#             stop_sequences=["\n\n"],
-#             echo=False
-#         )
-#         response = client.complete(request, model=MODEL)
-#         code = response.completions[0].completion.strip()
-#         code_solutions.append(code)
-#         # Sleep to respect rate limits
-#         time.sleep(0.5)
-#     return code_solutions
-
-def generate_code_solutions(problem: dict, client: Client, num_samples: int, temperature: float = 0.1, try_limit: int = 2) -> List[str]:
+def generate_code_solutions(problem: dict, client: Client, num_samples: int, temperature: float = 0.1, try_limit: int = 1) -> List[str]:
     """
     Generate multiple code solutions for a given problem, ensuring they have correct syntax.
 
@@ -79,7 +49,6 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
     code_solutions = []
     max_attempts = num_samples * 2  # Allow up to twice the number of samples to account for syntax errors
     attempts = 0
-    # print(prompt)
     while len(code_solutions) < num_samples and attempts < max_attempts:
         request = CompletionRequest(
             prompt=Prompt.from_text(prompt),
@@ -88,10 +57,9 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
             stop_sequences=[],
             echo=False
         )
-        # print(request)
         response = client.complete(request, model=MODEL)
+        # code = response.completions[0].completion.strip()
         code_block_match = re.search(r"<code>.*?</code>", response.completions[0].completion.strip(), re.DOTALL)
-        # print(response.completions[0].completion.strip())
         if code_block_match:
             code_block = code_block_match.group()
             
@@ -121,7 +89,6 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
             echo=False
         )
             print("Discarded code with syntax error.")
-        
         attempts += 1
 
     if not code_solutions:
@@ -143,58 +110,10 @@ def generate_code_prompt(problem: dict) -> str:
     # prompt = f"{problem['starter_code']}\n"
     # prompt += f"\"\"\"\n{problem['question']}\n\"\"\"\n"
     # prompt += "\n# Write your code below\n"
+    # prompt += f"#Sample Test cases: \n{get_sample_io_str(problem['input_output'])}\n"
     # # print(prompt)
     # # exit()
     # return prompt
-
-def generate_test_cases(problem: dict, client: Client, num_samples: int) -> List[str]:
-    """
-    Generate test cases for a given problem.
-
-    Args:
-        problem (dict): The problem to generate test cases for.
-        client (Client): The Aleph Alpha client.
-        num_samples (int): Number of test cases to generate.
-
-    Returns:
-        List[str]: A list of test case strings (assert statements).
-    """
-    prompt = generate_test_case_prompt(problem)
-
-    test_cases = []
-    for _ in range(num_samples):
-        request = CompletionRequest(
-            prompt=Prompt.from_text(prompt),
-            maximum_tokens=64,
-            temperature=0.8,
-            stop_sequences=["\n\n"],
-            echo=False
-        )
-        response = client.complete(request, model=MODEL)
-        test_case = response.completions[0].completion.strip()
-        if test_case.startswith("assert"):
-            test_cases.append(test_case)
-
-    return test_cases
-
-def generate_test_case_prompt(problem: dict) -> str:
-    """
-    Generate a prompt for test case generation.
-
-    Args:
-        problem (dict): The problem to generate test cases for.
-
-    Returns:
-        str: The prompt for test case generation.
-    """
-    prompt = f"{problem['starter_code']}\n"
-    prompt += f"\"\"\"\n{problem['question']}\n\"\"\"\n"
-    prompt += "\n# Generate test cases for the function above"
-    prompt += "\n# Each test case should be in the form of an assert statement."
-    fn_name = problem['input_output']['fn_name']
-    prompt += f"\n# Example: assert {fn_name}(input) == expected_output"
-    prompt += "\n\n# Test cases:\nassert "
-    return prompt
 
 def parse_test_case(test_case_str: str, problem: dict) -> Dict[str, Any]:
     """
@@ -226,181 +145,6 @@ def parse_test_case(test_case_str: str, problem: dict) -> Dict[str, Any]:
     except Exception:
         return None
 
-# # def generate_code_with_codet(problem: dict, client: Client, additional_data: bool) -> str:
-# #     """
-# #     Generate code for a problem using the CODET method.
-
-# #     Args:
-# #         problem (dict): The problem to solve.
-# #         client (Client): The Aleph Alpha client.
-# #         additional_data (bool): Whether to generate additional test cases.
-
-# #     Returns:
-# #         str: The selected code solution.
-# #     """
-# #     num_code_samples = 5   # Adjust the number of code solutions as needed
-
-# #     # Generate code solutions
-# #     code_solutions = generate_code_solutions(problem, client, num_code_samples)
-
-# #     if additional_data:
-# #         # Generate test cases
-# #         num_test_case_samples = 5  # Adjust the number of test cases as needed
-# #         test_cases_raw = generate_test_cases(problem, client, num_test_case_samples)
-
-# #         # Parse test cases
-# #         test_cases = []
-# #         for test_case_str in test_cases_raw:
-# #             parsed_test_case = parse_test_case(test_case_str, problem)
-# #             if parsed_test_case:
-# #                 test_cases.append(parsed_test_case)
-# #     else:
-# #         # Use existing test cases from 'input_output' and 'test_cases'
-# #         test_cases = []
-# #         # From 'input_output'
-# #         input_output = problem.get('input_output', {})
-# #         inputs_list = input_output.get('inputs', [])
-# #         outputs_list = input_output.get('outputs', [])
-# #         fn_name = input_output.get('fn_name', problem.get('starter_code').split('(')[0].strip())
-# #         for inputs, outputs in zip(inputs_list, outputs_list):
-# #             test_cases.append({
-# #                 'inputs': inputs,
-# #                 'outputs': outputs,
-# #                 'fn_name': fn_name
-# #             })
-# #         # From 'test_cases' if available
-# #         test_cases_dict = problem.get('test_cases', {})
-# #         inputs_list = test_cases_dict.get('inputs', [])
-# #         outputs_list = test_cases_dict.get('outputs', [])
-# #         fn_name = test_cases_dict.get('fn_name', fn_name)
-# #         for inputs, outputs in zip(inputs_list, outputs_list):
-# #             test_cases.append({
-# #                 'inputs': inputs,
-# #                 'outputs': outputs,
-# #                 'fn_name': fn_name
-# #             })
-
-# #     if not test_cases:
-# #         # If no valid test cases were available, return the first code solution
-# #         return code_solutions[0]
-
-# #     # Evaluate code solutions on test cases
-# #     code_solution_scores = []
-# #     for code in code_solutions:
-# #         # Prepare a problem dict with the test cases
-# #         problem_with_test_cases = problem.copy()
-# #         problem_with_test_cases['test_cases'] = {
-# #             'fn_name': fn_name,
-# #             'inputs': [tc['inputs'] for tc in test_cases],
-# #             'outputs': [tc['outputs'] for tc in test_cases]
-# #         }
-
-# #         try:
-# #             # Run test cases using the provided utility function
-# #             test_results = run_test_cases(
-# #                 problem=problem_with_test_cases,
-# #                 generation=code,
-# #                 timeout=10
-# #             )
-
-# #             # Count the number of passed test cases
-# #             num_passed = sum(1 for result in test_results if result['passed'])
-# #             code_solution_scores.append((code, num_passed))
-
-# #         except Exception as e:
-# #             # If execution fails, consider zero passed tests
-# #             code_solution_scores.append((code, 0))
-
-# #     # Select the code solution with the highest number of passed test cases
-# #     if not code_solution_scores:
-# #         return code_solutions[0]  # Fallback
-
-# #     best_code, _ = max(code_solution_scores, key=lambda x: x[1])
-# #     return best_code
-
-# def generate_code_with_codet(problem: dict, client: Client, additional_data: bool) -> str:
-#     """
-#     Generate code for a problem using the CODET method.
-
-#     Args:
-#         problem (dict): The problem to solve.
-#         client (Client): The Aleph Alpha client.
-#         additional_data (bool): Whether to generate additional test cases.
-
-#     Returns:
-#         str: The selected code solution.
-#     """
-#     num_code_samples = 5   # Adjust the number of code solutions as needed
-
-#     # Generate code solutions
-#     code_solutions = generate_code_solutions(problem, client, num_code_samples)
-
-#     if additional_data:
-#         # Generate test cases
-#         num_test_case_samples = 5  # Adjust the number of test cases as needed
-#         test_cases_raw = generate_test_cases(problem, client, num_test_case_samples)
-
-#         # Parse test cases
-#         test_cases = []
-#         for test_case_str in test_cases_raw:
-#             parsed_test_case = parse_test_case(test_case_str, problem)
-#             if parsed_test_case:
-#                 test_cases.append(parsed_test_case)
-#     else:
-#         # Use existing test cases from 'input_output' only
-#         test_cases = []
-#         # From 'input_output'
-#         input_output = problem.get('input_output', {})
-#         inputs_list = input_output.get('inputs', [])
-#         outputs_list = input_output.get('outputs', [])
-#         fn_name = input_output.get('fn_name', problem.get('starter_code').split('(')[0].strip())
-#         for inputs, outputs in zip(inputs_list, outputs_list):
-#             test_cases.append({
-#                 'inputs': inputs,
-#                 'outputs': outputs,
-#                 'fn_name': fn_name
-#             })
-#         # Do not use 'test_cases' attribute here
-
-#     if not test_cases:
-#         # If no valid test cases were available, return the first code solution
-#         return code_solutions[0]
-
-#     # Evaluate code solutions on test cases from 'input_output' only
-#     code_solution_scores = []
-#     for code in code_solutions:
-#         # Prepare a problem dict with the test cases
-#         problem_with_test_cases = problem.copy()
-#         problem_with_test_cases['test_cases'] = {
-#             'fn_name': fn_name,
-#             'inputs': [tc['inputs'] for tc in test_cases],
-#             'outputs': [tc['outputs'] for tc in test_cases]
-#         }
-
-#         try:
-#             # Run test cases using the provided utility function
-#             test_results = run_test_cases(
-#                 problem=problem_with_test_cases,
-#                 generation=code,
-#                 timeout=10
-#             )
-
-#             # Count the number of passed test cases
-#             num_passed = sum(1 for result in test_results if result['passed'])
-#             code_solution_scores.append((code, num_passed))
-
-#         except Exception as e:
-#             # If execution fails, consider zero passed tests
-#             code_solution_scores.append((code, 0))
-
-#     # Select the code solution with the highest number of passed test cases
-#     if not code_solution_scores:
-#         return code_solutions[0]  # Fallback
-
-#     best_code, _ = max(code_solution_scores, key=lambda x: x[1])
-#     return best_code
-
-
 def select_best_code_full(code_solutions: List[str], test_cases: List[Dict[str, Any]], problem: dict) -> str:
     """
     Select the best code solution by evaluating all code solutions on all test cases.
@@ -429,7 +173,7 @@ def select_best_code_full(code_solutions: List[str], test_cases: List[Dict[str, 
             test_results = run_test_cases(
                 problem=problem_with_test_cases,
                 generation=code,
-                timeout=10
+                timeout=1
             )
 
             # Count the number of passed test cases
@@ -547,7 +291,7 @@ def generate_code_with_codet(problem: dict, client: Client, additional_data: boo
         str: The selected code solution.
     """
     # Parameters adjusted for SOTA results on the APPS dataset
-    num_code_samples = 20  # For other datasets
+    num_code_samples = 5  # For other datasets
     num_test_case_samples = 5
     temperature = 0.8
 
