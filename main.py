@@ -50,10 +50,10 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
     prompt = generate_code_prompt(problem)
     # prompt = get_cot_prompt(prompt)
     code_solutions = []
-    max_attempts = 3  # Allow up to twice the number of samples to account for syntax errors
+    max_attempts = 2  # Allow up to twice the number of samples to account for syntax errors
     attempts = 0
+    start_time = time.perf_counter()
     for j in range(num_samples):
-        start_time = time.perf_counter()
         print(f"""-----> RUNNING SAMPLE {j}""")
         while attempts < max_attempts:
             print(f"""-----> RUNNING ATTEMPT {attempts} for SAMPLE {j} \,Time{time.perf_counter() - start_time}""")
@@ -104,6 +104,11 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
                 prompt += "<|start_header_id|>user<|end_header_id|>"
                 prompt += f"""The following code <code>\n{code}\n</code> has a compile error: "{compile_text}". Please debug the code and write the correct code for the given prompt {Prompt.from_text(prompt)}."""
                 prompt += "<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+            # time out guard against
+            if (time.perf_counter() - start_time) > 4.5 * 60.0:
+                print(f"""-----> TIME OUT OCCURED FOR {attempts} for SAMPLE {j}""")
+                code_solutions.append(code)
+                return code_solutions
             attempts += 1
         attempts = 0
     if not code_solutions:
