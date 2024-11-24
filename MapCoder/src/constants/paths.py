@@ -125,6 +125,9 @@ CODE_CONTEST_DATA_PATH = join(
 
 # APPS Dataset
 APPS_DATA_DIR = join(
+    os.path.dirname(__file__),
+    "..",
+    "..",
     "data",
     "APPS",
 )
