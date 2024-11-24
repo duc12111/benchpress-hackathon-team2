@@ -4,6 +4,7 @@ import random
 import argparse
 from typing import List, Dict, Any
 from aleph_alpha_client import Client, CompletionRequest, Prompt
+from agents.agent_testing import Agent
 from utilities import load_sample, run_test_cases, score
 from utils import get_cot_prompt, get_sample_io_str
 import prompting
@@ -58,8 +59,8 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
             echo=False
         )
         response = client.complete(request, model=MODEL)
-        # code = response.completions[0].completion.strip()
-        code_block_match = re.search(r"<code>.*?</code>", response.completions[0].completion.strip(), re.DOTALL)
+        answer = response.completions[0].completion.strip()
+        code_block_match = re.search(r"<code>.*?</code>", answer, re.DOTALL)
         if code_block_match:
             code_block = code_block_match.group()
             
@@ -76,6 +77,21 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
         while (num_try <= try_limit):
             success, compile_text = is_syntax_correct(code)
             if success:
+                # Create an Agent instance
+                agent = Agent(code, problem)
+
+                # Run tests
+                failures = agent.run_tests()
+ 
+                # If there are failures, generate a new prompt
+                if failures:
+                    prompt += answer
+                    prompt += "<|start_header_id|>user<|end_header_id|>"
+                    new_prompt += agent.generate_prompt(failures)
+                    print(new_prompt)
+                    prompt += new_prompt
+                    prompt += "<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+                    break
                 code_solutions.append(code)
                 break
             else:
