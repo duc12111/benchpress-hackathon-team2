@@ -10,7 +10,7 @@ import prompting
 import re
 import xml.etree.ElementTree as ET
 
-AA_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoyNTk4OCwidG9rZW5faWQiOjY0MTd9.-lXWLgM0Dud432XGkq03eZgCGlGUhyhMeKYwwwrl3Rk"  # Replace with your actual token
+AA_TOKEN = 0
 MODEL = "llama-3.1-70b-instruct-long-context"
 
 if not AA_TOKEN:
