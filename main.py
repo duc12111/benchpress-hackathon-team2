@@ -139,7 +139,7 @@ def generate_code_prompt(problem: dict) -> str:
     Returns:
         str: The prompt for code generation.
     """
-    return prompting.generate_prompt(problem['question'], problem['starter_code'], problem['input_output']['inputs'], problem['input_output']['outputs'])
+    return prompting.generate_prompt(problem['question'], problem['starter_code'], problem['input_output']['fn_name'], problem['input_output']['inputs'], problem['input_output']['outputs'])
     # prompt = f"{problem['starter_code']}\n"
     # prompt += f"\"\"\"\n{problem['question']}\n\"\"\"\n"
     # prompt += "\n# Write your code below\n"

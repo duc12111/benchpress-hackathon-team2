@@ -1,4 +1,4 @@
-def generate_prompt(question, fn_name, input_examples, output_examples):
+def generate_prompt(question, fn_name, fn_name_only,input_examples, output_examples):
     """
     Generates a robust prompt for code generation dynamically based on inputs.
 
@@ -12,10 +12,21 @@ def generate_prompt(question, fn_name, input_examples, output_examples):
         str: A complete formatted prompt for the AI to generate Python code.
     """
     # Create the prompt dynamically
-    test_data = generate_test_cases(input_examples, output_examples)
+    test_data = generate_test_cases(input_examples, output_examples, fn_name_only)
     prompt = f"""
-As an AI language model, your task is to write a Python function based on the following problem description, function definition, and input/output examples.
 
+
+<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+System Prompt:
+As an AI language model designed to generate robust and runnable Python code, your task is to:
+
+- Understand the Problem: Carefully read the provided problem description, function definition, and input/output examples.
+- Plan the Solution: Before coding, think through the logic, algorithms, or calculations required to solve the problem.
+- Write the Code: Implement the solution as a Python function. The code should be correct, efficient, and adhere to best practices and support all needed input and output formats.
+- Provide Output in XML Format: Output your response in an XML structure that separates the planning from the code, making it easy to parse. Use the specified format, ensuring the code is enclosed within <![CDATA[ ... ]]> tags.
+- Ensure Code Runability: The code should be directly runnable as Python code and consist only of the function definition and its body, without any input/output operations.<|eot_id|>
+<|start_header_id|>user<|end_header_id|>
+Please generate a Python function based on the following problem description, function definition, and input/output examples.
 # Problem Description:
 
 {question}
@@ -34,7 +45,7 @@ Understand the Problem: Carefully read the problem description and analyze the i
 
 Plan Your Solution: Before coding, plan your approach to solving the problem. Outline the logic, algorithms, or calculations you will use.
 
-Write the Code: Implement your solution as a Python function fully. Assume there are no previous implementations. The code should be robust, efficient, and adhere to best practices.
+Write the Code: Implement your solution as a Python function fully. Assume there are no previous implementations. The code should be robust, efficient, and adhere to best practices. Ensure that the all inputs types defined below in the Sample Test cases are suppoerted (e.g. integers, floats and strings).
 
 Output Format: Provide your solution in an XML format that separates the planning from the code, making it easy to parse. Use the following structure:
 
@@ -87,13 +98,14 @@ def add_numbers(a, b):
 ]]>
     </code>
 </solution>
-Important: Your response must be in XML format and contain the Python code inside <code> block to solve the problem defined above.
+Important: Your response must be in XML format and contain the Python code inside <code> block to solve the problem defined above.<|eot_id|>
+<|start_header_id|>assistant<|end_header_id|>
 """
 
     return prompt
 
     
-def generate_test_cases(inputs, outputs):
+def generate_test_cases(inputs, outputs, fn_name_only):
     """
     Generates formatted test cases for inclusion in the prompt.
 
@@ -109,6 +121,27 @@ def generate_test_cases(inputs, outputs):
     
     test_cases = "## Sample Test cases:\n"
     for i, (input_set, output_set) in enumerate(zip(inputs, outputs)):
-        test_cases += f"Input:\n{input_set}\nExpected output:\n{output_set[0]}\n"
+        test_cases += f"{fn_name_only}{format_data_as_string(input_set)} --> Expected output: {output_set[0]}\n"
     
     return test_cases
+
+
+def format_data_as_string(data):
+    """
+    Formats a list into a string where the entire list is wrapped in parentheses,
+    preserving the structure and order of elements.
+    
+    Example:
+    [[1, 2, 7], 3, 4] -> "([1, 2, 7], 3, 4)"
+    [[1, 2, 7], 3] -> "([1, 2, 7], 3)"
+    [[1, 2, 7], 3, [4, 5], 6] -> "([1, 2, 7], 3, [4, 5], 6)"
+    
+    :param data: A list of elements.
+    :return: A formatted string.
+    """
+    if isinstance(data, list) and len(data) > 0:
+        # Use tuple formatting to wrap the elements
+        formatted = ", ".join(map(str, data))
+        return f"({formatted})"
+    else:
+        raise ValueError("Input must be a non-empty list.")
