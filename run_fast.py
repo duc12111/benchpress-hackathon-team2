@@ -10,7 +10,7 @@
 # import xml.etree.ElementTree as ET
 # import multiprocessing
 
-# AA_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoyNTk4OCwidG9rZW5faWQiOjY0MzB9.Pr0srrnvB4i34-Ml98SU4Avok7Ib-V6wv_T3E2Wm0jc"  # Replace with your actual token
+AA_TOKEN = 0
 # MODEL = "llama-3.1-70b-instruct-long-context"
 
 # if not AA_TOKEN:
