@@ -48,33 +48,32 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
     prompt = generate_code_prompt(problem)
     # prompt = get_cot_prompt(prompt)
     code_solutions = []
-    max_attempts = num_samples * 2  # Allow up to twice the number of samples to account for syntax errors
+    max_attempts = 5  # Allow up to twice the number of samples to account for syntax errors
     attempts = 0
-    while len(code_solutions) < num_samples and attempts < max_attempts:
-        request = CompletionRequest(
-            prompt=Prompt.from_text(prompt),
-            maximum_tokens=10000,
-            temperature=temperature,  # Adjusted temperature for diversity
-            stop_sequences=[],
-            echo=False
-        )
-        response = client.complete(request, model=MODEL)
-        answer = response.completions[0].completion.strip()
-        code_block_match = re.search(r"<code>.*?</code>", answer, re.DOTALL)
-        if code_block_match:
-            code_block = code_block_match.group()
-            
-            # Parse the extracted XML block
-            root = ET.fromstring(code_block)
-            
-            # Extract the code from within CDATA
-            code = root.text.strip()
-            print(code)
-        else:
-            print("No <code> block found in the text.")
-            code = ""
-        num_try = 0
-        while (num_try <= try_limit):
+    for j in range(num_samples):
+        while attempts < max_attempts:
+            request = CompletionRequest(
+                prompt=Prompt.from_text(prompt),
+                maximum_tokens=10000,
+                temperature=temperature,  # Adjusted temperature for diversity
+                stop_sequences=[],
+                echo=False
+            )
+            response = client.complete(request, model=MODEL)
+            answer = response.completions[0].completion.strip()
+            code_block_match = re.search(r"<code>.*?</code>", answer, re.DOTALL)
+            if code_block_match:
+                code_block = code_block_match.group()
+                
+                # Parse the extracted XML block
+                root = ET.fromstring(code_block)
+                
+                # Extract the code from within CDATA
+                code = root.text.strip()
+                print(code)
+            else:
+                print("No <code> block found in the text.")
+                code = ""
             success, compile_text = is_syntax_correct(code)
             if success:
                 # Create an Agent instance
@@ -82,31 +81,25 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
 
                 # Run tests
                 failures = agent.run_tests()
- 
+
                 # If there are failures, generate a new prompt
                 if failures:
                     prompt += answer
                     prompt += "<|start_header_id|>user<|end_header_id|>"
-                    new_prompt += agent.generate_prompt(failures)
-                    print(new_prompt)
+                    new_prompt = agent.generate_prompt(failures)
                     prompt += new_prompt
                     prompt += "<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+                else:
+                    code_solutions.append(code)
                     break
-                code_solutions.append(code)
-                break
             else:
-                num_try += 1
-        if num_try > try_limit:
-            request = CompletionRequest(
-            prompt=f"""The following code <code>\n{code}\n</code> has a compile error: "{compile_text}". Please debug the code and write the correct code for the given prompt {Prompt.from_text(prompt)}.""",
-            maximum_tokens=10000,
-            temperature=temperature,  # Adjusted temperature for diversity
-            stop_sequences=[],
-            echo=False
-        )
-            print("Discarded code with syntax error.")
-        attempts += 1
-
+                prompt += answer
+                prompt += "<|start_header_id|>user<|end_header_id|>"
+                prompt += f"""The following code <code>\n{code}\n</code> has a compile error: "{compile_text}". Please debug the code and write the correct code for the given prompt {Prompt.from_text(prompt)}."""
+                prompt += "<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+                print("Discarded code with syntax error.")
+            attempts += 1
+        attempts = 0
     if not code_solutions:
         # If no code solutions have correct syntax, return an empty list or handle accordingly
         print("No syntactically correct code solutions were generated.")
