@@ -218,8 +218,8 @@ def generate_code_with_codet(problem: dict, client: Client, num_code_samples: in
 
 def main():
     parser = argparse.ArgumentParser(description='CODET Benchmark Script')
-    parser.add_argument('--num_code_samples', type=int, default=20, help='Number of code samples to generate')
-    parser.add_argument('--temperature', type=float, default=0.8, help='Sampling temperature for diversity')
+    parser.add_argument('--num_code_samples', type=int, default=25, help='Number of code samples to generate')
+    parser.add_argument('--temperature', type=float, default=0.5, help='Sampling temperature for diversity')
     parser.add_argument('--length', type=int, default=100, help='Number of problems to evaluate')
     args = parser.parse_args()
 
