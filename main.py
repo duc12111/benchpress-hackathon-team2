@@ -6,8 +6,13 @@ from typing import List, Dict, Any
 from aleph_alpha_client import Client, CompletionRequest, Prompt
 from utilities import load_sample, run_test_cases, score
 from utils import get_cot_prompt
+import json
 
-AA_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoyNTk4OCwidG9rZW5faWQiOjY0MTd9.-lXWLgM0Dud432XGkq03eZgCGlGUhyhMeKYwwwrl3Rk"  # Replace with your actual token
+secrets_path = os.path.join(os.path.dirname(__file__), 'secrets.json')
+with open(secrets_path) as f:
+    secrets = json.load(f)
+    AA_TOKEN = secrets.get("AA_TOKEN")
+    
 MODEL = "llama-3.1-70b-instruct-long-context"
 
 if not AA_TOKEN:
