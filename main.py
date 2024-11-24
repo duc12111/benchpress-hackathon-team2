@@ -10,6 +10,8 @@ from utils import get_cot_prompt, get_sample_io_str
 import prompting
 import re
 import xml.etree.ElementTree as ET
+import time
+
 
 AA_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoyNTk4OCwidG9rZW5faWQiOjY0MTd9.-lXWLgM0Dud432XGkq03eZgCGlGUhyhMeKYwwwrl3Rk"  # Replace with your actual token
 MODEL = "llama-3.1-70b-instruct-long-context"
@@ -48,10 +50,13 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
     prompt = generate_code_prompt(problem)
     # prompt = get_cot_prompt(prompt)
     code_solutions = []
-    max_attempts = 5  # Allow up to twice the number of samples to account for syntax errors
+    max_attempts = 3  # Allow up to twice the number of samples to account for syntax errors
     attempts = 0
     for j in range(num_samples):
+        start_time = time.perf_counter()
+        print(f"""-----> RUNNING SAMPLE {j}""")
         while attempts < max_attempts:
+            print(f"""-----> RUNNING ATTEMPT {attempts} for SAMPLE {j} \,Time{time.perf_counter() - start_time}""")
             request = CompletionRequest(
                 prompt=Prompt.from_text(prompt),
                 maximum_tokens=10000,
@@ -70,7 +75,6 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
                 
                 # Extract the code from within CDATA
                 code = root.text.strip()
-                print(code)
             else:
                 print("No <code> block found in the text.")
                 code = ""
@@ -90,14 +94,16 @@ def generate_code_solutions(problem: dict, client: Client, num_samples: int, tem
                     prompt += new_prompt
                     prompt += "<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
                 else:
+                    print("-----> ADDED THE FOLLOWING CODE SOLUTION")
+                    print(code)
                     code_solutions.append(code)
-                    break
+                    return code_solutions
+                    # break
             else:
                 prompt += answer
                 prompt += "<|start_header_id|>user<|end_header_id|>"
                 prompt += f"""The following code <code>\n{code}\n</code> has a compile error: "{compile_text}". Please debug the code and write the correct code for the given prompt {Prompt.from_text(prompt)}."""
                 prompt += "<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
-                print("Discarded code with syntax error.")
             attempts += 1
         attempts = 0
     if not code_solutions:

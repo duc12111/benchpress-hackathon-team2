@@ -67,7 +67,7 @@ class Agent:
                     prompt += f"An exception occurred during execution:\n{error_trace}\n"
                 else:
                     prompt += f"Actual output: {actual_output}\n"
-        prompt += """\nAll other requirements for robustness, input and output type support, and the other inputs and outputs data shall still be adhered to and be run successfully.
+        prompt += """\nDo not provide code for special cases, the generated code shall run generally for all testing inputs and calculate correct outputs. All other requirements for robustness, input and output type support, and the other inputs and outputs data shall still be adhered to and be run successfully.
 Provide your solution in an XML format that separates the planning from the code, making it easy to parse. Use the following structure:
 
 <solution>
